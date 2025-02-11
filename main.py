@@ -6,8 +6,7 @@ import os
 
 
 ####### OPEN AI init ########
-openai.api_key = os.getenv("AIPROXY_TOKEN")
-
+openai.api_key = os.environ["AIPROXY_TOKEN"]
 
 ######## INIT ########
 app = FastAPI()
