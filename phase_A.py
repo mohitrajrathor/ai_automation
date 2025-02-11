@@ -14,6 +14,9 @@ aiproxy_token = os.getenv("AIPROXY_TOKEN")
 client = OpenAI(api_key=aiproxy_token)
 
 
+temo = {}
+
+
 # Task A1: Install uv and run datagen.py
 def task_a1(user_email):
     subprocess.run(["pip", "install", "uv"], check=True)
@@ -150,6 +153,9 @@ def run_task(task_id):
         print(f"Task {task_id} completed.")
     else:
         print("Invalid task ID")
+
+
+func_obj = {""}
 
 
 # Example Usage

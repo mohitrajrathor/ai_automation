@@ -1,3 +1,4 @@
+import uvicorn
 from fastapi import FastAPI
 import openai
 from dotenv import load_dotenv
@@ -5,7 +6,7 @@ import os
 
 
 ####### OPEN AI init ########
-openai.api_key = os.getenv("api_key")
+openai.api_key = os.getenv("AIPROXY_TOKEN")
 
 
 ######## INIT ########
@@ -28,6 +29,10 @@ def read(path: str):
     route to read files
     """
     try:
+
+        # TODO:
+        # 1. read project
+
         return {"path": path}
     except Exception as e:
         print("Error", e)
@@ -44,3 +49,7 @@ def run(task: str):
     except Exception as e:
         print("Error", e)
         return {"error": "internal server error"}
+
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8000)
