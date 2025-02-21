@@ -1,163 +1,229 @@
-import os
 import subprocess
-import json
-import re
-import sqlite3
+import os
 from datetime import datetime
-from collections import defaultdict
-from pathlib import Path
-from openai import OpenAI
-from dotenv import load_dotenv
+import json
+import sqlite3
 
-# Load AI Proxy Token
-aiproxy_token = os.getenv("AIPROXY_TOKEN")
-client = OpenAI(api_key=aiproxy_token)
+import pytesseract
+from PIL import Image
+import openai
+import numpy as np
+
+########## CONST ##########
+DATA_DIR = "/data"
 
 
-temo = {}
+def format_markdown(file_path: str):
+    """Formats a Markdown file using Prettier"""
+    full_path = os.path.join(DATA_DIR, file_path.lstrip("/"))
+    subprocess.run(["npx", "prettier", "--write", full_path], check=True)
+    return {"message": "Markdown formatted"}
 
 
-# Task A1: Install uv and run datagen.py
-def task_a1(user_email):
+def install_and_run_script(user_email: str):
+    """Installs `uv` if needed and runs `datagen.py`"""
     subprocess.run(["pip", "install", "uv"], check=True)
-    subprocess.run(["python", "datagen.py", user_email], check=True)
-
-
-# Task A2: Format /data/format.md using prettier@3.4.2
-def task_a2():
-    subprocess.run(["npx", "prettier@3.4.2", "--write", "/data/format.md"], check=True)
-
-
-# Task A3: Count Wednesdays in /data/dates.txt
-def task_a3():
-    with open("/data/dates.txt", "r") as f:
-        dates = f.readlines()
-    count = sum(
-        1
-        for date in dates
-        if datetime.strptime(date.strip(), "%Y-%m-%d").weekday() == 2
+    subprocess.run(
+        ["python", "-m", "uv", "pip", "install", "-r", "requirements.txt"], check=True
     )
-    with open("/data/dates-wednesdays.txt", "w") as f:
-        f.write(str(count))
+    subprocess.run(["python", "datagen.py", user_email], check=True)
+    return {"message": "Data generation complete"}
 
 
-# Task A4: Sort contacts by last_name, first_name
-def task_a4():
-    with open("/data/contacts.json", "r") as f:
+def count_wednesdays(file_path: str, output_path: str):
+    """Counts the number of Wednesdays in a date file"""
+    full_path = os.path.join(DATA_DIR, file_path.lstrip("/"))
+    output_full_path = os.path.join(DATA_DIR, output_path.lstrip("/"))
+
+    with open(full_path, "r") as f:
+        dates = [
+            datetime.strptime(line.strip(), "%Y-%m-%d") for line in f if line.strip()
+        ]
+
+    wednesdays = sum(1 for date in dates if date.weekday() == 2)
+
+    with open(output_full_path, "w") as f:
+        f.write(str(wednesdays))
+
+    return {"message": f"Counted {wednesdays} Wednesdays"}
+
+
+def sort_contacts(file_path: str, output_path: str):
+    """Sorts a JSON array of contacts by last_name, then first_name"""
+    full_path = os.path.join(DATA_DIR, file_path.lstrip("/"))
+    output_full_path = os.path.join(DATA_DIR, output_path.lstrip("/"))
+
+    with open(full_path, "r") as f:
         contacts = json.load(f)
-    contacts.sort(key=lambda x: (x["last_name"], x["first_name"]))
-    with open("/data/contacts-sorted.json", "w") as f:
+
+    contacts.sort(key=lambda c: (c["last_name"], c["first_name"]))
+
+    with open(output_full_path, "w") as f:
         json.dump(contacts, f, indent=2)
 
-
-# Task A5: Get first line of 10 most recent .log files
-def task_a5():
-    logs = sorted(Path("/data/logs").glob("*.log"), key=os.path.getmtime, reverse=True)[
-        :10
-    ]
-    with open("/data/logs-recent.txt", "w") as f:
-        for log in logs:
-            with open(log, "r") as log_file:
-                f.write(log_file.readline())
+    return {"message": "Contacts sorted"}
 
 
-# Task A6: Extract H1 titles from Markdown files
-def task_a6():
+def extract_recent_logs(directory: str, output_path: str):
+    """Extracts the first line of the 10 most recent log files"""
+    log_files = sorted(
+        [f for f in os.listdir(directory) if f.endswith(".log")],
+        key=lambda x: os.path.getmtime(os.path.join(directory, x)),
+        reverse=True,
+    )[:10]
+
+    first_lines = []
+    for file in log_files:
+        with open(os.path.join(directory, file), "r") as f:
+            first_lines.append(f.readline().strip())
+
+    with open(output_path, "w") as f:
+        f.write("\n".join(first_lines))
+
+    return {"message": "Recent logs extracted"}
+
+
+def extract_markdown_titles(directory: str, output_path: str):
+    """Extracts H1 titles from Markdown files in a directory"""
     index = {}
-    for md_file in Path("/data/docs").glob("*.md"):
-        with open(md_file, "r") as f:
-            for line in f:
-                if line.startswith("# "):
-                    index[md_file.name] = line.strip("# ").strip()
-                    break
-    with open("/data/docs/index.json", "w") as f:
+
+    for file in os.listdir(directory):
+        if file.endswith(".md"):
+            with open(os.path.join(directory, file), "r") as f:
+                for line in f:
+                    if line.startswith("# "):
+                        index[file] = line[2:].strip()
+                        break  # Only first H1
+
+    with open(output_path, "w") as f:
         json.dump(index, f, indent=2)
 
-
-# Task A7: Extract sender email from email.txt using LLM
-def task_a7():
-    with open("/data/email.txt", "r") as f:
-        email_content = f.read()
-    response = client.completions.create(
-        model="gpt-4o-mini",
-        prompt=f"Extract the sender's email from this message:\n{email_content}\nOnly return the email address.",
-        max_tokens=50,
-    )
-    sender_email = response.choices[0].text.strip()
-    with open("/data/email-sender.txt", "w") as f:
-        f.write(sender_email)
+    return {"message": "Markdown titles extracted"}
 
 
-# Task A8: Extract credit card number from image using OCR/LLM
-def task_a8():
-    response = client.completions.create(
-        model="gpt-4o-mini",
-        prompt="Extract the credit card number from the image /data/credit-card.png. Return only the number without spaces.",
-        max_tokens=50,
-    )
-    card_number = response.choices[0].text.strip()
-    with open("/data/credit-card.txt", "w") as f:
-        f.write(card_number)
-
-
-# Task A9: Find most similar comments using embeddings
-def task_a9():
-    with open("/data/comments.txt", "r") as f:
-        comments = f.readlines()
-    embeddings = {
-        comment: client.embeddings.create(
-            input=comment, model="text-embedding-ada-002"
-        ).data
-        for comment in comments
-    }
-    most_similar = sorted(
-        [
-            (c1, c2, sum((a - b) ** 2 for a, b in zip(e1, e2)))
-            for c1, e1 in embeddings.items()
-            for c2, e2 in embeddings.items()
-            if c1 != c2
-        ],
-        key=lambda x: x[2],
-    )[0][:2]
-    with open("/data/comments-similar.txt", "w") as f:
-        f.write("\n".join(most_similar))
-
-
-# Task A10: Sum ticket sales for "Gold" tickets in SQLite
-def task_a10():
-    conn = sqlite3.connect("/data/ticket-sales.db")
+def calculate_sales(db_file: str, output_path: str):
+    """Calculates the total sales for 'Gold' ticket type"""
+    conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
-    cursor.execute("SELECT SUM(units * price) FROM tickets WHERE type='Gold'")
+
+    cursor.execute("SELECT SUM(units * price) FROM tickets WHERE type = 'Gold'")
     total_sales = cursor.fetchone()[0] or 0
-    conn.close()
-    with open("/data/ticket-sales-gold.txt", "w") as f:
+
+    with open(output_path, "w") as f:
         f.write(str(total_sales))
 
-
-# Example: Running a Task
-def run_task(task_id):
-    tasks = {
-        "A1": lambda: task_a1(os.getenv("email")),
-        "A2": task_a2,
-        "A3": task_a3,
-        "A4": task_a4,
-        "A5": task_a5,
-        "A6": task_a6,
-        "A7": task_a7,
-        "A8": task_a8,
-        "A9": task_a9,
-        "A10": task_a10,
-    }
-    if task_id in tasks:
-        tasks[task_id]()
-        print(f"Task {task_id} completed.")
-    else:
-        print("Invalid task ID")
+    conn.close()
+    return {"message": f"Total Gold ticket sales: {total_sales}"}
 
 
-func_obj = {""}
+import openai
 
 
-# Example Usage
-if __name__ == "__main__":
-    run_task("A3")
+def extract_email_sender(input_file: str, output_file: str):
+    """
+    Reads an email from a file, extracts the sender’s email address using an LLM, and writes it to an output file.
+
+    Parameters:
+    - input_file (str): Path to the email text file.
+    - output_file (str): Path where the extracted email address will be saved.
+    """
+
+    # Read email content
+    with open(input_file, "r", encoding="utf-8") as f:
+        email_content = f.read()
+
+    # Prompt for the LLM
+    prompt = f"""
+    You are an expert in extracting email metadata. Given an email message, extract the sender’s email address.
+
+    Email Message:
+    {email_content}
+
+    Respond strictly with just the email address.
+    """
+
+    response = openai.ChatCompletion.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You extract sender email addresses from emails.",
+            },
+            {"role": "user", "content": prompt},
+        ],
+        temperature=0,
+    )
+
+    sender_email = response["choices"][0]["message"]["content"].strip()
+
+    # Write extracted email to output file
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(sender_email)
+
+    return sender_email
+
+
+def extract_credit_card(input_file: str, output_file: str):
+    """
+    Reads a credit card number from an image file using OCR and saves it without spaces.
+
+    Parameters:
+    - input_file (str): Path to the image containing the credit card number.
+    - output_file (str): Path where the extracted number will be saved.
+    """
+
+    # Load the image
+    image = Image.open(input_file)
+
+    # Extract text using OCR
+    extracted_text = pytesseract.image_to_string(image)
+
+    # Filter out digits only (removing spaces and other non-numeric characters)
+    credit_card_number = "".join(filter(str.isdigit, extracted_text))
+
+    # Write to output file
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(credit_card_number)
+
+    return credit_card_number
+
+
+def find_similar_comments(input_file: str, output_file: str):
+    """
+    Finds the most similar pair of comments in a file using embeddings and writes them to an output file.
+
+    Parameters:
+    - input_file (str): Path to the file containing comments (one per line).
+    - output_file (str): Path where the most similar comments will be saved.
+    """
+
+    # Read comments from file
+    with open(input_file, "r", encoding="utf-8") as f:
+        comments = [line.strip() for line in f.readlines() if line.strip()]
+
+    # Get embeddings for each comment
+    embeddings = []
+    for comment in comments:
+        response = openai.Embedding.create(
+            model="text-embedding-ada-002", input=comment
+        )
+        embeddings.append(np.array(response["data"][0]["embedding"]))
+
+    # Find the most similar pair
+    min_distance = float("inf")
+    most_similar_pair = ("", "")
+
+    for i in range(len(comments)):
+        for j in range(i + 1, len(comments)):
+            distance = np.linalg.norm(
+                embeddings[i] - embeddings[j]
+            )  # Euclidean distance
+            if distance < min_distance:
+                min_distance = distance
+                most_similar_pair = (comments[i], comments[j])
+
+    # Write the most similar comments to output file
+    with open(output_file, "w", encoding="utf-8") as f:
+        f.write(most_similar_pair[0] + "\n" + most_similar_pair[1])
+
+    return most_similar_pair
