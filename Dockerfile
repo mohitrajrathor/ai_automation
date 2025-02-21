@@ -1,19 +1,26 @@
-# Use a Python image that also supports Node.js if needed
-FROM python:3
+# Use an official Python image
+FROM python:3.10
 
-# Set the working directory
+# Set working directory
 WORKDIR /app
 
-# Copy and install dependencies first to optimize caching
-COPY . /app
+# Install system dependencies & Node.js
+RUN apt-get update && apt-get install -y curl && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g prettier@3.4.2
 
-# Install dependencies in a virtual environment
-RUN pip install -r requirements.txt
+# Copy dependencies
+COPY requirements.txt .
 
-# Copy the rest of the project files
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the FastAPI default port
+# Copy the application code
+COPY . .
+
+# Expose FastAPI default port
 EXPOSE 8000
 
-# Command to run FastAPI using Uvicorn inside the virtual environment
-CMD ["fastapi", "run", "main.py"]
+# Run the FastAPI app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

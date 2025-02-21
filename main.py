@@ -1,29 +1,44 @@
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 import openai
 from dotenv import load_dotenv
 import os
-from fastapi import HTTPException
-from phase_A import *
+
+# Importing functions
+from phase_A import (
+    install_and_run_script,
+    format_markdown,
+    count_wednesdays,
+    sort_contacts,
+    extract_recent_logs,
+    extract_markdown_titles,
+    extract_email_sender,
+    extract_credit_card,
+    find_similar_comments,
+    calculate_sales,
+)
 from prompt import parse_task_with_llm
 
+# Load environment variables
+load_dotenv()
 
-####### OPEN AI init ########
-openai.api_key = os.environ["AIPROXY_TOKEN"]
+# Initialize OpenAI API key
+AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
+if not AIPROXY_TOKEN:
+    raise ValueError("AIPROXY_TOKEN is not set in the environment variables.")
+openai.api_key = AIPROXY_TOKEN
 
-######## INIT ########
+# Initialize FastAPI app
 app = FastAPI()
 
-
-######## CONST ########
+# Constants
 DATA_DIR = "/data"
 
 
-######## Routes #########
 @app.get("/read")
 def read(path: str):
     """Reads a file's contents from the /data directory."""
-    full_path = os.path.join(DATA_DIR, path.lstrip("/"))
+    full_path = os.path.join(os.getcwd(), DATA_DIR, path.lstrip("/"))
     if not os.path.exists(full_path):
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -33,38 +48,43 @@ def read(path: str):
 
 @app.post("/run")
 def run(task: str):
-    """
-    route to perform a task
-    """
-    """ Parses and executes a given task. """
-    # Call GPT-4o-Mini to interpret the task
-    action, params = parse_task_with_llm(task)
-
-    # Execute the required function based on the action
+    """Parses and executes a given task using GPT-4o-Mini."""
     try:
-        if action == "install_and_run":
-            return install_and_run_script(params["email"])
-        elif action == "format_markdown":
-            return format_markdown(params["file"])
-        elif action == "count_wednesdays":
-            return count_wednesdays(params["file"], params["output"])
-        elif action == "sort_contacts":
-            return sort_contacts(params["file"], params["output"])
-        elif action == "extract_recent_logs":
-            return extract_recent_logs(params["dir"], params["output"])
-        elif action == "extract_markdown_titles":
-            return extract_markdown_titles(params["dir"], params["output"])
-        elif action == "extract_email_sender":
-            return extract_email_sender(params["file"], params["output"])
-        elif action == "extract_credit_card":
-            return extract_credit_card(params["file"], params["output"])
-        elif action == "find_similar_comments":
-            return find_similar_comments(params["file"], params["output"])
-        elif action == "calculate_sales":
-            return calculate_sales(params["db_file"], params["output"])
-        else:
-            return {"error": "Unknown task"}
+        action, params = parse_task_with_llm(task)
+
+        task_mapping = {
+            "install_and_run": lambda: install_and_run_script(params["email"]),
+            "format_markdown": lambda: format_markdown(params["file"]),
+            "count_wednesdays": lambda: count_wednesdays(
+                params["file"], params["output"]
+            ),
+            "sort_contacts": lambda: sort_contacts(params["file"], params["output"]),
+            "extract_recent_logs": lambda: extract_recent_logs(
+                params["dir"], params["output"]
+            ),
+            "extract_markdown_titles": lambda: extract_markdown_titles(
+                params["dir"], params["output"]
+            ),
+            "extract_email_sender": lambda: extract_email_sender(
+                params["file"], params["output"]
+            ),
+            "extract_credit_card": lambda: extract_credit_card(
+                params["file"], params["output"]
+            ),
+            "find_similar_comments": lambda: find_similar_comments(
+                params["file"], params["output"]
+            ),
+            "calculate_sales": lambda: calculate_sales(
+                params["db_file"], params["output"]
+            ),
+        }
+
+        if action in task_mapping:
+            return task_mapping[action]()
+        return {"error": "Unknown task"}
+
     except Exception as e:
+        print(e)
         return {"error": str(e)}
 
 
