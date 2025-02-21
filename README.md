@@ -40,18 +40,6 @@ This project is an automation agent that executes plain-English tasks by leverag
 - **A9**: Find the most similar pair of comments in `/data/comments.txt` using embeddings.
 - **A10**: Calculate total sales for "Gold" ticket type from `/data/ticket-sales.db`.
 
-### Phase B: Business & Security Tasks
-- **B1**: Restrict data access to `/data` directory.
-- **B2**: Prevent file deletion.
-- **B3**: Fetch data from an API and save it.
-- **B4**: Clone a Git repository and make a commit.
-- **B5**: Run SQL queries on SQLite/DuckDB.
-- **B6**: Extract data from a website (web scraping).
-- **B7**: Compress or resize an image.
-- **B8**: Transcribe audio from an MP3 file.
-- **B9**: Convert Markdown to HTML.
-- **B10**: Write an API endpoint to filter a CSV file and return JSON data.
-
 ## Installation & Setup
 1. Clone the repository:
    ```sh
@@ -64,7 +52,7 @@ This project is an automation agent that executes plain-English tasks by leverag
    ```
 3. Run the application:
    ```sh
-   python app.py
+   python main.py
    ```
 4. Set the environment variable for AI Proxy:
    ```sh
@@ -78,38 +66,17 @@ This project is an automation agent that executes plain-English tasks by leverag
 ## Deployment
 1. Build the Docker image:
    ```sh
-   docker build -t user-name/repo-name .
+   podman build -t user-name/repo-name .
    ```
 2. Push to Docker Hub:
    ```sh
-   docker tag user-name/repo-name user-name/repo-name:latest
-   docker push user-name/repo-name:latest
+   podman tag user-name/repo-name user-name/repo-name:latest
+   podman push user-name/repo-name:latest
    ```
 3. Run the container:
    ```sh
    podman run --rm -e AIPROXY_TOKEN=$AIPROXY_TOKEN -p 8000:8000 user-name/repo-name
    ```
-
-## Submission
-1. Ensure your GitHub repository is public and contains:
-   - Source code
-   - MIT LICENSE file
-   - Dockerfile
-2. Submit the following details via the provided Google Form:
-   - **GitHub Repo URL**: `https://github.com/user-name/repo-name`
-   - **Docker Image Name**: `user-name/repo-name`
-
-## Evaluation Criteria
-- **Phase A (10 Marks)**: 1 mark per correctly handled operations task.
-- **Phase B (10 Marks)**: 1 mark per correctly handled business/security task.
-- **Bonus Marks**:
-  - Additional unlisted tasks handled.
-  - Unique code implementation.
-
-## Notes
-- Use the AI Proxy token with `GPT-4o-Mini`.
-- Ensure each API call completes within 20 seconds.
-- Keep prompts concise to optimize token usage.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
